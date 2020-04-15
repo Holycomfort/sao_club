@@ -10,6 +10,12 @@ import os
 
 def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epochs=20):
 
+    def adjust_learning_rate(optimizer, epoch):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = args.lr / (1 + (epoch // 10) * 10)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
     def train(model, train_loader, optimizer, criterion):
         model.train(True)
         total_loss = 0.0
@@ -32,7 +38,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
         epoch_acc = total_correct.double() / len(train_loader.dataset)
         return epoch_loss, epoch_acc.item()
 
-    def valid(model, valid_loader,criterion):
+    def valid(model, valid_loader, criterion):
         model.train(False)
         total_loss = 0.0
         total_correct = 0
@@ -50,6 +56,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
     best_acc = 0.0
     for epoch in range(num_epochs):
+        adjust_learning_rate(optimizer, epoch)
         print('epoch:{:d}/{:d}'.format(epoch, num_epochs))
         print('*' * 100)
         train_loss, train_acc = train(model, train_loader, optimizer, criterion)
