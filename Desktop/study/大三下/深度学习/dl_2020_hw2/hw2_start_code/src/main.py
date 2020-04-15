@@ -8,9 +8,9 @@ import os
 ## Note that: here we provide a basic solution for training and validation.
 ## You can directly change it if you find something wrong or not good enough.
 
-def train_model(model,train_loader, valid_loader, criterion, optimizer, num_epochs=20):
+def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epochs=20):
 
-    def train(model, train_loader,optimizer,criterion):
+    def train(model, train_loader, optimizer, criterion):
         model.train(True)
         total_loss = 0.0
         total_correct = 0
@@ -52,9 +52,9 @@ def train_model(model,train_loader, valid_loader, criterion, optimizer, num_epoc
     for epoch in range(num_epochs):
         print('epoch:{:d}/{:d}'.format(epoch, num_epochs))
         print('*' * 100)
-        train_loss, train_acc = train(model, train_loader,optimizer,criterion)
+        train_loss, train_acc = train(model, train_loader, optimizer, criterion)
         print("training: {:.4f}, {:.4f}".format(train_loss, train_acc))
-        valid_loss, valid_acc = valid(model, valid_loader,criterion)
+        valid_loss, valid_acc = valid(model, valid_loader, criterion)
         print("validation: {:.4f}, {:.4f}".format(valid_loss, valid_acc))
         if valid_acc > best_acc:
             best_acc = valid_acc
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     model = model.to(device)
 
     ## data preparation
-    train_loader, valid_loader = data.load_data(data_dir=data_dir,input_size=inupt_size, batch_size=batch_size)
+    train_loader, valid_loader = data.load_data(data_dir=data_dir, input_size=inupt_size, batch_size=batch_size)
 
     ## optimizer
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
