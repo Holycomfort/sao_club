@@ -34,9 +34,11 @@ class Network(nn.Module):
             nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
         )
-
+        self.shortcut = nn.Sequential(
+            nn.Conv2d(3, 16, kernel_size=1, stride=4, bias=False),
+            nn.BatchNorm2d(16)
+        )
         self.fc = nn.Sequential(
             nn.Linear(in_features=224 // 4 * 224 // 4 * 16, out_features=1024),
             nn.ReLU(),
@@ -56,7 +58,7 @@ class Network(nn.Module):
         else:
             transform_img = None
 
-        conv_output = self.conv(img).view(batch_size, -1)
+        conv_output = nn.ReLU()(self.conv(img)+self.shortcut(img)).view(batch_size, -1)
         predict = self.fc(conv_output)
         return transform_img, predict
 
