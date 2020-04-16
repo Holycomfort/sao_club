@@ -11,10 +11,10 @@ import os
 def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epochs=20):
 
     def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr / (1 + (epoch // 10) * 10)
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
+        """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+        lr = args.lr / (1 + (epoch // 10) * 10)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
 
     def train(model, train_loader, optimizer, criterion):
         model.train(True)
