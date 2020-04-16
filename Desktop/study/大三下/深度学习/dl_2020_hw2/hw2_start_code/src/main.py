@@ -12,7 +12,8 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
     def adjust_learning_rate(optimizer, epoch):
         """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-        lr = args.lr / (1 + (epoch // 10) * 10)
+        global lr
+        lr = lr / (1 + (epoch // 10) * 10)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     lr = 0.001
 
     ## model initialization
-    model = models.model_A(num_classes=num_classes)
+    model = models.model_B(num_classes=num_classes)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 

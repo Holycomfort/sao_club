@@ -12,9 +12,11 @@ import os
 def load_data(data_dir = "../data/",input_size = 224,batch_size = 36):
     data_transforms = {
         'train': transforms.Compose([
+            transforms.Resize(input_size),
+            transforms.CenterCrop(input_size),
             transforms.RandomApply([transforms.Compose([
-                    transforms.RandomCrop([20,20]),
-                    transforms.Resize([28, 28])
+                    transforms.RandomCrop([100,100]),
+                    transforms.Resize(input_size)
                     ])], p=0.2),
             transforms.RandomHorizontalFlip(p=0.2),
             transforms.RandomApply([transforms.RandomRotation(45)], p=0.2),
