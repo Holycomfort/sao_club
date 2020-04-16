@@ -47,7 +47,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
         for inputs, labels in valid_loader:
             inputs = inputs.to(device)
             labels = labels.to(device)
-            outputs = model(inputs)
+            _, outputs = model(inputs)
             loss = criterion(outputs, labels)
             _, predictions = torch.max(outputs, 1)
             total_loss += loss.item() * inputs.size(0)
