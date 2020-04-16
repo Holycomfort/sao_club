@@ -9,7 +9,7 @@ import os
 ## mean_vals = [0.485, 0.456, 0.406]
 ## std_vals = [0.229, 0.224, 0.225]
 
-def load_data(data_dir = "../data/",input_size = 224,batch_size = 36):
+def load_data(data_dir = "../data/", input_size = 224, batch_size = 36):
     data_transforms = {
         'train': transforms.Compose([
             transforms.Resize(input_size),

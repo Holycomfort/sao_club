@@ -26,7 +26,8 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             inputs = inputs.to(device)
             labels = labels.to(device)
             optimizer.zero_grad()
-            outputs = model(inputs)
+            _, outputs = model(inputs)
+            #print(outputs.shape, labels.shape)
             loss = criterion(outputs, labels)
             _, predictions = torch.max(outputs, 1)
             loss.backward()
@@ -86,7 +87,7 @@ if __name__ == '__main__':
     lr = 0.001
 
     ## model initialization
-    model = models.model_B(num_classes=num_classes)
+    model = models.model_C(num_classes=num_classes)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
