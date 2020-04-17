@@ -93,7 +93,7 @@ if __name__ == '__main__':
     batch_size = 36
 
     ## about training
-    num_epochs = 3
+    num_epochs = 100
     lr = 0.001
     train_accs = []
     valid_accs = []

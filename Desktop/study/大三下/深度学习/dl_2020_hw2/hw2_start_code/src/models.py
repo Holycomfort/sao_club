@@ -19,7 +19,7 @@ def model_B(num_classes, pretrained = False):
 
 
 def model_C(num_classes, pretrained = False):
-    model = Network()
+    model = Network(mode="cnn")
     return model
 
 
@@ -58,6 +58,7 @@ class Network(nn.Module):
         else:
             transform_img = None
 
+        #conv_output = nn.ReLU()(self.conv(img)).view(batch_size, -1)
         conv_output = nn.ReLU()(self.conv(img)+self.shortcut(img)).view(batch_size, -1)
         predict = self.fc(conv_output)
         return transform_img, predict
