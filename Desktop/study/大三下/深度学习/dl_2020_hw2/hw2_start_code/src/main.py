@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import confusion_matrix
+from sklearn.manifold import TSNE
 
 ## Note that: here we provide a basic solution for training and validation.
 ## You can directly change it if you find something wrong or not good enough.
@@ -47,11 +48,11 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
         model.train(False)
         total_loss = 0.0
         total_correct = 0
-        global valid_label, valid_pred
+        global valid_label, valid_pred, valid_fc
         for inputs, labels in valid_loader:
             inputs = inputs.to(device)
             labels = labels.to(device)
-            _, outputs = model(inputs)
+            fc, outputs = model(inputs)
             #outputs = model(inputs)
             loss = criterion(outputs, labels)
             _, predictions = torch.max(outputs, 1)
@@ -59,6 +60,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             total_correct += torch.sum(predictions == labels.data)
             valid_label.extend(labels.data)
             valid_pred.extend(predictions)
+            valid_fc.extend(fc)
         epoch_loss = total_loss / len(valid_loader.dataset)
         epoch_acc = total_correct.double() / len(valid_loader.dataset)
         return epoch_loss, epoch_acc.item()
@@ -98,7 +100,8 @@ if __name__ == '__main__':
     train_accs = []
     valid_accs = []
     valid_label = []
-    valid_pred = []    
+    valid_pred = []
+    valid_fc = []
 
     ## model initialization
     model = models.model_C(num_classes=num_classes)
@@ -163,3 +166,9 @@ if __name__ == '__main__':
     # show confusion matrix
     plt.show()
 
+    ## t-SNE
+    valid_fc = np.array(valid_fc)
+    fc_tsne = TSNE(n_components=2).fit_transform(valid_fc)
+    plt.title('t-SNE')
+    plt.scatter(fc_tsne[:, 0], fc_tsne[:, 1], s=30, c=valid_label)
+    plt.show()

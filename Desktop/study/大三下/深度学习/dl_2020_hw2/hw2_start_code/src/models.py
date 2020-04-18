@@ -39,12 +39,12 @@ class Network(nn.Module):
             nn.Conv2d(3, 16, kernel_size=1, stride=4, bias=False),
             nn.BatchNorm2d(16)
         )
-        self.fc = nn.Sequential(
+        self.fc1 = nn.Sequential(
             nn.Linear(in_features=224 // 4 * 224 // 4 * 16, out_features=1024),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(in_features=1024, out_features=20)
+            nn.Dropout(0.5)
         )
+        self.fc2 = nn.Linear(in_features=1024, out_features=20)
 
     def forward(self, img):
         '''
@@ -60,8 +60,9 @@ class Network(nn.Module):
 
         #conv_output = nn.ReLU()(self.conv(img)).view(batch_size, -1)
         conv_output = nn.ReLU()(self.conv(img)+self.shortcut(img)).view(batch_size, -1)
-        predict = self.fc(conv_output)
-        return transform_img, predict
+        net = self.fc1(conv_output)
+        predict = self.fc2(net)
+        return net, predict
 
 
 class LocalNetwork(nn.Module):
