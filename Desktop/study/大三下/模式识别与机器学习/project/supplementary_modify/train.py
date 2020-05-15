@@ -16,19 +16,14 @@ import numpy as np
 ## mean_vals = [0.485, 0.456, 0.406]
 ## std_vals = [0.229, 0.224, 0.225]
 
-def load_data(data_dir="./dataset1/train", input_size=628, batch_size=36):
+def load_data(data_dir="./dataset1/train", input_size=256, batch_size=8):
     data_transforms = {
         'train': transforms.Compose([
-            transforms.RandomApply([transforms.Compose([
-                    transforms.RandomCrop([300,300]),
-                    transforms.Resize(input_size)
-                    ])], p=0.2),
-            transforms.RandomHorizontalFlip(p=0.2),
-            transforms.RandomApply([transforms.RandomRotation(45)], p=0.2),
-            transforms.RandomApply([transforms.ColorJitter(0.5, 0.5, 0.5, 0.5)], p=0.2),
+            transforms.Resize(input_size),
             transforms.ToTensor()
         ]),
         'valid': transforms.Compose([
+            transforms.Resize(input_size),
             transforms.ToTensor()
         ]),
     }
@@ -58,11 +53,13 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
         for inputs, labels in train_loader:
             inputs = inputs.to(device)
-            labels = labels.to(device)
+            labels = labels.to(device).long()
+            #print(inputs.shape, labels.shape)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             _, predictions = torch.max(outputs, 1)
+            #print(predictions)
             loss.backward()
             optimizer.step()
 
@@ -70,7 +67,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             total_correct += torch.sum(predictions == labels.data)
 
         epoch_loss = total_loss / len(train_loader.dataset)
-        epoch_acc = total_correct.double() / len(train_loader.dataset)
+        epoch_acc = total_correct.double() / len(train_loader.dataset) / 256**2
         return epoch_loss, epoch_acc.item()
 
     def valid(model, valid_loader, criterion):
@@ -80,7 +77,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
         for inputs, labels in valid_loader:
             inputs = inputs.to(device)
-            labels = labels.to(device)
+            labels = labels.to(device).long()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             _, predictions = torch.max(outputs, 1)
@@ -88,7 +85,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             total_correct += torch.sum(predictions == labels.data)
             
         epoch_loss = total_loss / len(valid_loader.dataset)
-        epoch_acc = total_correct.double() / len(valid_loader.dataset)
+        epoch_acc = total_correct.double() / len(valid_loader.dataset) / 256**2
         return epoch_loss, epoch_acc.item()
 
     best_acc = 0.0
@@ -100,8 +97,6 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
         print("training: {:.4f}, {:.4f}".format(train_loss, train_acc))
         valid_loss, valid_acc = valid(model, valid_loader, criterion)
         print("validation: {:.4f}, {:.4f}".format(valid_loss, valid_acc))
-        train_accs.append(train_acc)
-        valid_accs.append(valid_acc)
         if valid_acc > best_acc:
             best_acc = valid_acc
             best_model = model
@@ -109,7 +104,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
     ## about training
     num_epochs = 100
@@ -121,7 +116,7 @@ if __name__ == '__main__':
     model = model.to(device)
 
     ## data preparation
-    train_loader, valid_loader = data.load_data()
+    train_loader, valid_loader = load_data()
 
     ## optimizer
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)

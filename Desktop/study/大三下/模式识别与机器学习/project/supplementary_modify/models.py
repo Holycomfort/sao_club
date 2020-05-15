@@ -175,6 +175,7 @@ class U_Net(nn.Module):
         x4 = self.Maxpool(x3)
         x4 = self.Conv4(x4)
 
+        
         x5 = self.Maxpool(x4)
         x5 = self.Conv5(x5)
 
@@ -185,6 +186,8 @@ class U_Net(nn.Module):
         d5 = self.Up_conv5(d5)
         
         d4 = self.Up4(d5)
+
+        #print(x3.shape, d4.shape)
         d4 = torch.cat((x3,d4),dim=1)
         d4 = self.Up_conv4(d4)
 

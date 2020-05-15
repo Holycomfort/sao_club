@@ -1,5 +1,6 @@
 from PIL import Image
 from torch.utils.data import Dataset
+import numpy as np
 
 
 class TxtLoader(Dataset):
@@ -17,7 +18,8 @@ class TxtLoader(Dataset):
         fn, label = self.imgs[index]
         img = Image.open(fn).convert('L') 
         img = self.transform(img)
-        label = np.asarray(label)
+        label = np.asarray(Image.open(label).resize((256, 256)))
+        label = np.array(label).astype(np.int16)
         label[label > 0] = 1
         return img, label
 
