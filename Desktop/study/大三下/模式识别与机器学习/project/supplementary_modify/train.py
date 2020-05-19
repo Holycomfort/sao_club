@@ -18,18 +18,26 @@ import numpy as np
 
 def load_data(data_dir="./dataset1/train", input_size=256, batch_size=8):
     data_transforms = {
-        'train': transforms.Compose([
+        'train_all': transforms.Compose([
+            transforms.RandomCrop([300, 300]),
+            transforms.RandomHorizontalFlip(p=0.2),
+            transforms.RandomApply([transforms.RandomRotation(45)], p=0.2),
             transforms.Resize(input_size),
+        ]),
+        'train_data': transforms.Compose([
+            transforms.RandomApply([transforms.ColorJitter(0.5, 0.5, 0.5, 0.5)], p=0.2),
             transforms.ToTensor()
         ]),
-        'valid': transforms.Compose([
+        'valid_all': transforms.Compose([
             transforms.Resize(input_size),
-            transforms.ToTensor()
         ]),
+        'valid_data': transforms.Compose([
+            transforms.ToTensor()
+        ])
     }
 
-    image_dataset_train = TxtLoader('./dataset1/train.txt', data_transforms['train'])
-    image_dataset_valid = TxtLoader('./dataset1/valid.txt', data_transforms['valid'])
+    image_dataset_train = TxtLoader('./dataset1/train.txt', data_transforms['train_all'], data_transforms['train_data'])
+    image_dataset_valid = TxtLoader('./dataset1/valid.txt', data_transforms['valid_all'], data_transforms['valid_data'])
 
     train_loader = DataLoader(image_dataset_train, batch_size=batch_size, shuffle=True, num_workers=4)
     valid_loader = DataLoader(image_dataset_valid, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -42,7 +50,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
     def adjust_learning_rate(optimizer, epoch):
         """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
         global lr
-        lr = lr / (1 + (epoch // 30) * 5)
+        lr = lr / (1 + (epoch // 5) * 2)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
@@ -64,11 +72,12 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             optimizer.step()
 
             total_loss += loss.item() * inputs.size(0)
-            total_correct += torch.sum(predictions == labels.data)
+            cell_in = np.sum(predictions == 1 and labels == 1)
+            cell_un = np.sum(predictions == 1 or labels == 1)
 
         epoch_loss = total_loss / len(train_loader.dataset)
-        epoch_acc = total_correct.double() / len(train_loader.dataset) / 256**2
-        return epoch_loss, epoch_acc.item()
+        epoch_iou = cell_in / cell_un
+        return epoch_loss, epoch_iou
 
     def valid(model, valid_loader, criterion):
         model.train(False)
@@ -81,24 +90,26 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             _, predictions = torch.max(outputs, 1)
+
             total_loss += loss.item() * inputs.size(0)
-            total_correct += torch.sum(predictions == labels.data)
+            cell_in = np.sum(predictions == 1 and labels == 1)
+            cell_un = np.sum(predictions == 1 or labels == 1)
             
         epoch_loss = total_loss / len(valid_loader.dataset)
-        epoch_acc = total_correct.double() / len(valid_loader.dataset) / 256**2
-        return epoch_loss, epoch_acc.item()
+        epoch_iou = cell_in / cell_un
+        return epoch_loss, epoch_iou
 
-    best_acc = 0.0
+    best_iou = 0.0
     for epoch in range(num_epochs):
         adjust_learning_rate(optimizer, epoch)
         print('epoch:{:d}/{:d}'.format(epoch, num_epochs))
         print('*' * 100)
-        train_loss, train_acc = train(model, train_loader, optimizer, criterion)
-        print("training: {:.4f}, {:.4f}".format(train_loss, train_acc))
-        valid_loss, valid_acc = valid(model, valid_loader, criterion)
-        print("validation: {:.4f}, {:.4f}".format(valid_loss, valid_acc))
-        if valid_acc > best_acc:
-            best_acc = valid_acc
+        train_loss, train_iou = train(model, train_loader, optimizer, criterion)
+        print("training: {:.4f}, {:.4f}".format(train_loss, train_iou))
+        valid_loss, valid_iou = valid(model, valid_loader, criterion)
+        print("validation: {:.4f}, {:.4f}".format(valid_loss, valid_iou))
+        if valid_iou > best_iou:
+            best_iou = valid_iou
             best_model = model
             torch.save(best_model, 'best_model.pt')
 
