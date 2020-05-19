@@ -25,7 +25,7 @@ class TxtLoader(Dataset):
         comb = self.transform_all(comb)
         comb = np.asarray(comb)
         img = Image.fromarray(comb[:,:, 0]) # Image, L
-        label = comb[:,:, 1]  # np.array, Len*Len
+        label = np.array(comb[:,:, 1])  # np.array, Len*Len
         label[label > 0] = 1
         
         # transform data

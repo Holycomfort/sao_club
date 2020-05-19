@@ -57,7 +57,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
     def train(model, train_loader, optimizer, criterion):
         model.train(True)
         total_loss = 0.0
-        total_correct = 0
+        total_in, total_un = 0, 0
 
         for inputs, labels in train_loader:
             inputs = inputs.to(device)
@@ -72,17 +72,22 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             optimizer.step()
 
             total_loss += loss.item() * inputs.size(0)
-            cell_in = np.sum(predictions == 1 and labels == 1)
-            cell_un = np.sum(predictions == 1 or labels == 1)
+            predictions, labels = np.array(predictions.cpu()).reshape(-1)==1, np.array(labels.cpu()).reshape(-1)==1
+            
+            cell_in = np.sum(predictions * labels)
+            cell_un = np.sum(predictions + labels)
+
+            total_in += cell_in
+            total_un += cell_un
 
         epoch_loss = total_loss / len(train_loader.dataset)
-        epoch_iou = cell_in / cell_un
+        epoch_iou = total_in / total_un
         return epoch_loss, epoch_iou
 
     def valid(model, valid_loader, criterion):
         model.train(False)
         total_loss = 0.0
-        total_correct = 0
+        total_in, total_un = 0, 0
 
         for inputs, labels in valid_loader:
             inputs = inputs.to(device)
@@ -92,11 +97,16 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
             _, predictions = torch.max(outputs, 1)
 
             total_loss += loss.item() * inputs.size(0)
-            cell_in = np.sum(predictions == 1 and labels == 1)
-            cell_un = np.sum(predictions == 1 or labels == 1)
+            predictions, labels = np.array(predictions.cpu()).reshape(-1)==1, np.array(labels.cpu()).reshape(-1)==1
+            
+            cell_in = np.sum(predictions * labels)
+            cell_un = np.sum(predictions + labels)
+
+            total_in += cell_in
+            total_un += cell_un
             
         epoch_loss = total_loss / len(valid_loader.dataset)
-        epoch_iou = cell_in / cell_un
+        epoch_iou = total_in / total_un
         return epoch_loss, epoch_iou
 
     best_iou = 0.0
@@ -115,7 +125,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
     ## about training
     num_epochs = 100
