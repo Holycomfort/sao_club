@@ -1,10 +1,14 @@
 from __future__ import absolute_import
 
 import cv2
+from PIL import Image
 import imageio
 import numpy as np
 import os, sys
 import os.path as osp
+import models
+import torch
+from torchvision import transforms
 from jaccard import get_all_area
 
 def unit16b2uint8(img):
@@ -51,12 +55,40 @@ class BinaryThresholding:
         connectivity = 4
         _, label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
         return label_img
-    
+
+class UnetSeg:
+    def __init__(self):
+        unet = models.U_Net(img_ch=1, output_ch=2)
+        unet.load_state_dict(torch.load("./best_model.pt"))
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        unet = unet.to(device)
+        unet.eval()
+        self.unet = unet
+        self.device = device
+        self.transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.ToTensor()
+        ])
+
+    def __call__(self, img):
+        gray = Image.fromarray(bgr_to_gray(img))
+        gray = self.transform(gray).to(self.device)
+        output = self.unet(gray.view(1, 1, 256, 256))
+        #print(output.shape)
+        prediction = np.array(torch.max(output, 1)[1].cpu()) * 255
+        prediction = prediction.reshape((256, 256)).astype('uint8')
+        prediction = cv2.resize(prediction, (628, 628))
+        binary_mask = cv2.medianBlur(prediction, 5)
+        connectivity = 4
+        _, label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
+        return label_img
+
 
 if __name__ == "__main__":
-    segmentor = BinaryThresholding(threshold=110)
-    image_path = './dataset1/test/'
-    result_path = './dataset1/test_RES'
+    #segmentor = BinaryThresholding(threshold=110)
+    segmentor = UnetSeg()
+    image_path = './dataset1/train/'
+    result_path = './dataset1/train_RES_UNET'
     if not osp.exists(result_path):
         os.mkdir(result_path)
     image_list = sorted([osp.join(image_path, image) for image in os.listdir(image_path)])

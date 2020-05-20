@@ -67,8 +67,8 @@ def AOPCN(pred_areas, gt_areas):
 
 
 if __name__ == "__main__":
-    index = "025"
-    pred = "./dataset1/train_RES/mask" + index + ".tif"
+    index = "006"
+    pred = "./dataset1/train_RES_UNET/mask" + index + ".tif"
     gt = "./dataset1/train_GT/SEG/man_seg" + index + ".tif"
     pred = cv2.imread(pred, -1)
     gt = cv2.imread(gt, -1)

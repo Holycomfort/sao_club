@@ -20,12 +20,12 @@ def load_data(data_dir="./dataset1/train", input_size=256, batch_size=8):
     data_transforms = {
         'train_all': transforms.Compose([
             transforms.RandomCrop([300, 300]),
-            transforms.RandomHorizontalFlip(p=0.2),
-            transforms.RandomApply([transforms.RandomRotation(45)], p=0.2),
+            #transforms.RandomHorizontalFlip(p=0.3),
+            #transforms.RandomApply([transforms.RandomRotation(45)], p=0.3),
             transforms.Resize(input_size),
         ]),
         'train_data': transforms.Compose([
-            transforms.RandomApply([transforms.ColorJitter(0.5, 0.5, 0.5, 0.5)], p=0.2),
+            #transforms.RandomApply([transforms.ColorJitter(0.5, 0.5, 0.5, 0.5)], p=0.3),
             transforms.ToTensor()
         ]),
         'valid_all': transforms.Compose([
@@ -62,7 +62,6 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
         for inputs, labels in train_loader:
             inputs = inputs.to(device)
             labels = labels.to(device).long()
-            #print(inputs.shape, labels.shape)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
@@ -121,11 +120,11 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
         if valid_iou > best_iou:
             best_iou = valid_iou
             best_model = model
-            torch.save(best_model, 'best_model.pt')
+            torch.save(best_model.state_dict(), 'best_model.pt')
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
     ## about training
     num_epochs = 100
@@ -138,10 +137,21 @@ if __name__ == '__main__':
 
     ## data preparation
     train_loader, valid_loader = load_data()
+    '''
+    all_0, all_1 = 0, 0
+    for inputs, labels in train_loader:
+        all_0 += np.sum((labels==0).numpy())
+        all_1 += np.sum((labels==1).numpy())
+    for inputs, labels in valid_loader:
+        all_0 += np.sum((labels==0).numpy())
+        all_1 += np.sum((labels==1).numpy())
+    print(all_0, all_1)
+    sys.exit(0)
+    '''
 
     ## optimizer
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
     ## loss function
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1, 1]).to(device))
     train_model(model,train_loader, valid_loader, criterion, optimizer, num_epochs=num_epochs)
