@@ -33,20 +33,21 @@ def get_all_area(mask):
                 else:
                     areas[num] = []
                     q.put((x, y))
+                    idx = mask[x][y]
                     while not q.empty():
                         item = q.get()
                         areas[num].append(item)
                         if 0 < item[0] < 627 and 0 < item[1] < 627:
-                            if discover[item[0] - 1][item[1]] == False and mask[item[0] - 1][item[1]] != 0:
+                            if discover[item[0] - 1][item[1]] == False and mask[item[0] - 1][item[1]] == idx:
                                 q.put((item[0] - 1, item[1]))
                                 discover[item[0] - 1][item[1]] = True
-                            if discover[item[0] + 1][item[1]] == False and mask[item[0] + 1][item[1]] != 0:
+                            if discover[item[0] + 1][item[1]] == False and mask[item[0] + 1][item[1]] == idx:
                                 q.put((item[0] + 1, item[1]))
                                 discover[item[0] + 1][item[1]] = True
-                            if discover[item[0]][item[1] - 1] == False and mask[item[0]][item[1] - 1] != 0:
+                            if discover[item[0]][item[1] - 1] == False and mask[item[0]][item[1] - 1] == idx:
                                 q.put((item[0], item[1] - 1))
                                 discover[item[0]][item[1] - 1] = True
-                            if discover[item[0]][item[1] + 1] == False and mask[item[0]][item[1] + 1] != 0:
+                            if discover[item[0]][item[1] + 1] == False and mask[item[0]][item[1] + 1] == idx:
                                 q.put((item[0], item[1] + 1))
                                 discover[item[0]][item[1] + 1] = True
                     num += 1

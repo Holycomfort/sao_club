@@ -8,6 +8,7 @@ import os, sys
 import os.path as osp
 import models
 import torch
+from sklearn.cluster import KMeans
 from torchvision import transforms
 from jaccard import get_all_area
 
@@ -70,6 +71,33 @@ class UnetSeg:
             transforms.ToTensor()
         ])
 
+    def post_seg(label_img):
+        areas = get_all_area(label_img)
+        s_dic = {key: len(value) for key, value in areas.items()}
+        sorted_key_list = sorted(s_dic, key=lambda x: s_dic[x])
+        sorted_s = map(lambda x: {x: s_dic[x]}, sorted_key_list)
+        # std cell: middle number
+        sorted_keys = list(sorted_s.keys())
+        std_s = sorted_s[sorted_keys[len(sorted_keys) // 2]]
+        for key in areas:
+            area_s = s_dic[key]
+            if area_s < std_s / 5:
+                coords = areas[key]
+                for x, y in coords:
+                    label_img[x][y] = 0
+            if area_s > std_s * 2:
+                num = round(area_s / std_s)
+                estimator = KMeans(num)
+                coords = np.array(areas[key])
+                estimator.fit(coords)
+                max_lb = label_img.max()
+                for index, class_k in enumerate(estimator.labels_):
+                    if class_k == 0:
+                        continue
+                    new_lb = max_lb + class_k
+                    x, y = coords[index]
+                    label_img[x][y] = new_lb
+
     def __call__(self, img):
         gray = Image.fromarray(bgr_to_gray(img))
         gray = self.transform(gray).to(self.device)
@@ -81,6 +109,7 @@ class UnetSeg:
         binary_mask = cv2.medianBlur(prediction, 5)
         connectivity = 4
         _, label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
+        self.post_seg(label_img)
         return label_img
 
 

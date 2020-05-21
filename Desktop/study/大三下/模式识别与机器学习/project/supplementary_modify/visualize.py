@@ -22,7 +22,7 @@ def visual(img, gt):
 if __name__ == "__main__":
     # train->origin & gt; test->origin & pred
     mode = "train"
-    index = "025"
+    index = "015"
     img = "./dataset1/" + mode + "/t" + index + ".tif"
     if mode == "train":
         gt = "./dataset1/train_GT/SEG/man_seg" + index + ".tif"
