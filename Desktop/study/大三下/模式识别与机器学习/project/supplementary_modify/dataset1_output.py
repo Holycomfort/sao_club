@@ -60,56 +60,73 @@ class BinaryThresholding:
 class UnetSeg:
     def __init__(self):
         unet = models.U_Net(img_ch=1, output_ch=2)
-        unet.load_state_dict(torch.load("./best_model.pt"))
+        unet.load_state_dict(torch.load("./best_model_2.0.pt"))
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         unet = unet.to(device)
         unet.eval()
+        cnet = models.U_Net(img_ch=1, output_ch=2)
+        cnet.load_state_dict(torch.load("./best_model_30.pt"))
+        cnet = cnet.to(device)
+        cnet.eval()
         self.unet = unet
+        self.cnet = cnet
         self.device = device
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.ToTensor()
         ])
 
-    def post_seg(label_img):
+    def post_seg(self, label_img, c_label_img):
+        c_areas = get_all_area(c_label_img)
+        centers = []
+        for key, value in c_areas.items():
+            num = len(value)
+            if num < 150:
+                continue
+            centers.append(value[num//2])
+        centers = set(centers)
+
         areas = get_all_area(label_img)
-        s_dic = {key: len(value) for key, value in areas.items()}
-        sorted_key_list = sorted(s_dic, key=lambda x: s_dic[x])
-        sorted_s = map(lambda x: {x: s_dic[x]}, sorted_key_list)
-        # std cell: middle number
-        sorted_keys = list(sorted_s.keys())
-        std_s = sorted_s[sorted_keys[len(sorted_keys) // 2]]
+        #s_dic = {key: len(value) for key, value in areas.items()}
+        #sorted_key_list = sorted(s_dic, key=lambda x: s_dic[x])
+        #std_s = s_dic[sorted_key_list[len(sorted_key_list) // 2]]
+        #print(s_dic, std_s)
         for key in areas:
-            area_s = s_dic[key]
-            if area_s < std_s / 5:
-                coords = areas[key]
-                for x, y in coords:
-                    label_img[x][y] = 0
-            if area_s > std_s * 2:
-                num = round(area_s / std_s)
-                estimator = KMeans(num)
-                coords = np.array(areas[key])
-                estimator.fit(coords)
-                max_lb = label_img.max()
-                for index, class_k in enumerate(estimator.labels_):
-                    if class_k == 0:
-                        continue
-                    new_lb = max_lb + class_k
-                    x, y = coords[index]
-                    label_img[x][y] = new_lb
+            inter = set(areas[key]) & centers
+            if len(inter) <= 1:
+                continue
+            estimator = KMeans(len(inter))
+            estimator.cluster_centers_ = np.array(list(inter))
+            coords = np.array(areas[key])
+            estimator.fit(coords)
+            max_lb = label_img.max()
+            for index, class_k in enumerate(estimator.labels_):
+                if class_k == 0:
+                    continue
+                new_lb = max_lb + class_k
+                x, y = coords[index]
+                label_img[x][y] = new_lb
 
     def __call__(self, img):
         gray = Image.fromarray(bgr_to_gray(img))
         gray = self.transform(gray).to(self.device)
         output = self.unet(gray.view(1, 1, 256, 256))
-        #print(output.shape)
         prediction = np.array(torch.max(output, 1)[1].cpu()) * 255
         prediction = prediction.reshape((256, 256)).astype('uint8')
-        prediction = cv2.resize(prediction, (628, 628))
-        binary_mask = cv2.medianBlur(prediction, 5)
+        binary_mask = cv2.resize(prediction, (628, 628))
+        binary_mask = cv2.medianBlur(binary_mask, 5)
         connectivity = 4
         _, label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
-        self.post_seg(label_img)
+        '''
+        c_output = self.cnet(gray.view(1, 1, 256, 256))
+        prediction = np.array(torch.max(c_output, 1)[1].cpu()) * 255
+        prediction = prediction.reshape((256, 256)).astype('uint8')
+        binary_mask = cv2.resize(prediction, (628, 628))
+        binary_mask = cv2.medianBlur(binary_mask, 5)
+        connectivity = 4
+        _, c_label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
+        self.post_seg(label_img, c_label_img)
+        '''
         return label_img
 
 

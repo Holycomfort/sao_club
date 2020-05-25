@@ -19,8 +19,8 @@ import numpy as np
 def load_data(data_dir="./dataset1/train", input_size=256, batch_size=8):
     data_transforms = {
         'train_all': transforms.Compose([
-            transforms.RandomCrop([300, 300]),
-            #transforms.RandomHorizontalFlip(p=0.3),
+            #transforms.RandomCrop([300, 300]),
+            transforms.RandomHorizontalFlip(p=0.2),
             #transforms.RandomApply([transforms.RandomRotation(45)], p=0.3),
             transforms.Resize(input_size),
         ]),
@@ -50,7 +50,7 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
     def adjust_learning_rate(optimizer, epoch):
         """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
         global lr
-        lr = lr / (1 + (epoch // 5) * 2)
+        lr = lr / (1 + (epoch // 15) * 2)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
@@ -124,11 +124,11 @@ def train_model(model, train_loader, valid_loader, criterion, optimizer, num_epo
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
     ## about training
-    num_epochs = 100
-    lr = 0.001
+    num_epochs = 30
+    lr = 0.01
 
     ## model initialization
     model = models.U_Net(img_ch=1, output_ch=2)
@@ -137,21 +137,11 @@ if __name__ == '__main__':
 
     ## data preparation
     train_loader, valid_loader = load_data()
-    '''
-    all_0, all_1 = 0, 0
-    for inputs, labels in train_loader:
-        all_0 += np.sum((labels==0).numpy())
-        all_1 += np.sum((labels==1).numpy())
-    for inputs, labels in valid_loader:
-        all_0 += np.sum((labels==0).numpy())
-        all_1 += np.sum((labels==1).numpy())
-    print(all_0, all_1)
-    sys.exit(0)
-    '''
 
     ## optimizer
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
     ## loss function
-    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1, 1]).to(device))
+    #criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([30, 1]).to(device))
     train_model(model,train_loader, valid_loader, criterion, optimizer, num_epochs=num_epochs)

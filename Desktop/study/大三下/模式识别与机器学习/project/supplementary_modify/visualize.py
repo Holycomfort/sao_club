@@ -22,15 +22,18 @@ def visual(img, gt):
 if __name__ == "__main__":
     # train->origin & gt; test->origin & pred
     mode = "train"
-    index = "015"
+    index = "023"
     img = "./dataset1/" + mode + "/t" + index + ".tif"
     if mode == "train":
         gt = "./dataset1/train_GT/SEG/man_seg" + index + ".tif"
         pred = "./dataset1/train_RES_UNET/mask" + index + ".tif"
+        pred_post = "./dataset1/train_RES/mask" + index + ".tif"
     else:
         gt = None
-        pred = "./dataset1/test_RES/mask" + index + ".tif"
+        pred = "./dataset1/test_RES_UNET/mask" + index + ".tif"
+        pred_post = "./dataset1/test_RES/mask" + index + ".tif"
     cell, cell_pred = visual(img, pred)
+    _, cell_pred_post = visual(img, pred_post)
     if gt is not None:
         _, cell_gt = visual(img, gt)
     #print(cell.shape, cell_mask.shape)
@@ -42,6 +45,10 @@ if __name__ == "__main__":
     cv2.resizeWindow("cell_pred", 400, 400)
     cv2.moveWindow("cell_pred", 550, 100)
     cv2.imshow("cell_pred", cell_pred)
+    cv2.namedWindow("cell_pred_post", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("cell_pred_post", 400, 400)
+    cv2.moveWindow("cell_pred_post", 550, 550)
+    cv2.imshow("cell_pred_post", cell_pred_post)
     if gt is not None:
         cv2.namedWindow("cell_gt", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("cell_gt", 400, 400)
