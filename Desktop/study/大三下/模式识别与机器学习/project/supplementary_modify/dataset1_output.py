@@ -6,11 +6,12 @@ import imageio
 import numpy as np
 import os, sys
 import os.path as osp
-import models
+import models, models2
 import torch
 from sklearn.cluster import KMeans
 from torchvision import transforms
 from jaccard import get_all_area
+
 
 def unit16b2uint8(img):
     if img.dtype == 'uint8':
@@ -58,21 +59,26 @@ class BinaryThresholding:
         return label_img
 
 class UnetSeg:
-    def __init__(self):
-        unet = models.U_Net(img_ch=1, output_ch=2)
-        unet.load_state_dict(torch.load("./best_model_2.0.pt"))
+    def __init__(self, l, lc):
+        unet = models2.U_Net(1, 2)
+        unet.load_state_dict(torch.load("./best_model_dice_1.5.pt"))
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         unet = unet.to(device)
         unet.eval()
-        cnet = models.U_Net(img_ch=1, output_ch=2)
-        cnet.load_state_dict(torch.load("./best_model_30.pt"))
+        cnet = models2.U_Net(1, 2)
+        cnet.load_state_dict(torch.load("./best_model_dice_c.pt"))
         cnet = cnet.to(device)
         cnet.eval()
+        self.l, self.lc = l, lc
         self.unet = unet
         self.cnet = cnet
         self.device = device
         self.transform = transforms.Compose([
-            transforms.Resize(256),
+            transforms.Resize(l),
+            transforms.ToTensor()
+        ])
+        self.transform_c = transforms.Compose([
+            transforms.Resize(lc),
             transforms.ToTensor()
         ])
 
@@ -81,7 +87,7 @@ class UnetSeg:
         centers = []
         for key, value in c_areas.items():
             num = len(value)
-            if num < 150:
+            if num < 10:
                 continue
             centers.append(value[num//2])
         centers = set(centers)
@@ -92,6 +98,9 @@ class UnetSeg:
         #std_s = s_dic[sorted_key_list[len(sorted_key_list) // 2]]
         #print(s_dic, std_s)
         for key in areas:
+            if len(areas[key]) < 50:
+                for x, y in areas[key]:
+                    label_img[x][y] = 0
             inter = set(areas[key]) & centers
             if len(inter) <= 1:
                 continue
@@ -108,33 +117,36 @@ class UnetSeg:
                 label_img[x][y] = new_lb
 
     def __call__(self, img):
-        gray = Image.fromarray(bgr_to_gray(img))
-        gray = self.transform(gray).to(self.device)
-        output = self.unet(gray.view(1, 1, 256, 256))
-        prediction = np.array(torch.max(output, 1)[1].cpu()) * 255
-        prediction = prediction.reshape((256, 256)).astype('uint8')
-        binary_mask = cv2.resize(prediction, (628, 628))
-        binary_mask = cv2.medianBlur(binary_mask, 5)
-        connectivity = 4
-        _, label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
-        '''
-        c_output = self.cnet(gray.view(1, 1, 256, 256))
-        prediction = np.array(torch.max(c_output, 1)[1].cpu()) * 255
-        prediction = prediction.reshape((256, 256)).astype('uint8')
-        binary_mask = cv2.resize(prediction, (628, 628))
-        binary_mask = cv2.medianBlur(binary_mask, 5)
-        connectivity = 4
-        _, c_label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
-        self.post_seg(label_img, c_label_img)
-        '''
+        with torch.no_grad():
+            gray_o = Image.fromarray(bgr_to_gray(img))
+            gray = self.transform(gray_o).to(self.device)
+            gray_c = self.transform_c(gray_o).to(self.device)
+
+            output = self.unet(gray.view(1, 1, self.l, self.l))
+            prediction = np.array(torch.max(output, 1)[1].cpu()) * 255
+            prediction = prediction.reshape((self.l, self.l)).astype('uint8')
+            binary_mask = cv2.resize(prediction, (628, 628))
+            binary_mask = cv2.medianBlur(binary_mask, 5)
+            connectivity = 4
+            _, label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
+            
+            c_output = self.cnet(gray_c.view(1, 1, self.lc, self.lc))
+            prediction = np.array(torch.max(c_output, 1)[1].cpu()) * 255
+            prediction = prediction.reshape((self.lc, self.lc)).astype('uint8')
+            binary_mask = cv2.resize(prediction, (628, 628))
+            binary_mask = cv2.medianBlur(binary_mask, 5)
+            connectivity = 4
+            _, c_label_img, _, _ = cv2.connectedComponentsWithStats(binary_mask, connectivity, cv2.CV_32S)
+            self.post_seg(label_img, c_label_img)
+            
         return label_img
 
 
 if __name__ == "__main__":
     #segmentor = BinaryThresholding(threshold=110)
-    segmentor = UnetSeg()
-    image_path = './dataset1/train/'
-    result_path = './dataset1/train_RES_UNET'
+    segmentor = UnetSeg(628, 628)
+    image_path = './dataset1/test/'
+    result_path = './dataset1/test_RES'
     if not osp.exists(result_path):
         os.mkdir(result_path)
     image_list = sorted([osp.join(image_path, image) for image in os.listdir(image_path)])
