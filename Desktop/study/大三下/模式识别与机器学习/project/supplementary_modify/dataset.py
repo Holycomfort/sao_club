@@ -22,9 +22,11 @@ class TxtLoader(Dataset):
         # transform all
         img = np.asarray(Image.open(fn)).reshape((628, 628, 1))
         label = np.asarray(Image.open(lb)).reshape((628, 628, 1))
-        # center net
-        #label = centerize(label.reshape((628, 628))).reshape((628, 628, 1))
         comb = np.concatenate([img, label, label], axis=2)
+        ### edge filp
+        comb = unfold(comb)
+        ### center net
+        #comb[:,:,1] = centerize(comb[:,:,1])
         comb = Image.fromarray(comb.astype('uint8')).convert('RGB')
         comb = self.transform_all(comb)
         comb = np.asarray(comb)
@@ -51,8 +53,10 @@ def get_center_point(mask):
         center[i] = (int(center[i][0]),int(center[i][1]))
     return center
 
+
 def dist_square(t1,t2):
     return max((t1[0]-t2[0],t2[0]-t1[0],t1[1]-t2[1],t2[1]-t1[1]))
+
 
 def find_min_dist(center):
     min_dist = dict(zip(center.keys(),[10000]*len(center)))
@@ -63,6 +67,7 @@ def find_min_dist(center):
             min_dist[i] = min(min_dist[i],dist_square(m,k))
     return min_dist
 
+
 def centerize(mask):
     center = get_center_point(mask)
     min_dist = find_min_dist(center)
@@ -72,3 +77,20 @@ def centerize(mask):
         r = int(min_dist[i]**0.5)
         l[x-r:x+r+1,y-r:y+r+1] = i
     return l
+
+
+def unfold(img):
+    '''input->np.array: 628*628*c
+       output->np.array: 672*672*c'''
+    c = img.shape[2]
+    otp = np.zeros((672, 672, c))
+    otp[22:650, 22:650] = img
+    otp[0:22, 22:650] = np.flip(img[0:22, :], 0)
+    otp[650:672, 22:650] = np.flip(img[606:628, :], 0)
+    otp[22:650, 0:22] = np.flip(img[:, 0:22], 1)
+    otp[22:650, 650:672] = np.flip(img[:, 606:628], 1)
+    otp[0:22, 0:22] = np.flip(np.flip(img[0:22, 0:22], 0), 1)
+    otp[0:22, 650:672] = np.flip(np.flip(img[0:22, 606:628], 0), 1)
+    otp[650:672, 0:22] = np.flip(np.flip(img[606:628, 0:22], 0), 1)
+    otp[650:672, 650:672] = np.flip(np.flip(img[606:628, 606:628], 0), 1)
+    return otp

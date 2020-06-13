@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.optim as optim
 from dataset import TxtLoader
+from my_loss import SoftDiceLoss, BCEFocalLoss, lovasz_hinge, binary_xloss
 import models, models2
 import os
 import matplotlib.pyplot as plt
@@ -18,7 +19,7 @@ import numpy as np
 ## mean_vals = [0.485, 0.456, 0.406]
 ## std_vals = [0.229, 0.224, 0.225]
 
-def load_data(data_dir="./dataset1/train", input_size=628, batch_size=4):
+def load_data(data_dir="./dataset1/train", input_size=672, batch_size=4):
     data_transforms = {
         'train_all': transforms.Compose([
             #transforms.RandomCrop([300, 300]),
@@ -42,8 +43,8 @@ def load_data(data_dir="./dataset1/train", input_size=628, batch_size=4):
     image_dataset_train = TxtLoader('./dataset1/train.txt', data_transforms['train_all'], data_transforms['train_data'])
     image_dataset_valid = TxtLoader('./dataset1/valid.txt', data_transforms['valid_all'], data_transforms['valid_data'])
 
-    train_loader = DataLoader(image_dataset_train, batch_size=batch_size, shuffle=True, num_workers=4)
-    valid_loader = DataLoader(image_dataset_valid, batch_size=batch_size, shuffle=False, num_workers=4)
+    train_loader = DataLoader(image_dataset_train, batch_size=batch_size, shuffle=True, num_workers=1)
+    valid_loader = DataLoader(image_dataset_valid, batch_size=batch_size, shuffle=False, num_workers=1)
 
     return train_loader, valid_loader
 
@@ -59,7 +60,7 @@ def train_model(model, train_loader, valid_loader, criterion, dice, optimizer, n
             param_group['lr'] = lr
     '''
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.2)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.3)
 
     def train(model, train_loader, optimizer, criterion):
         model.train(True)
@@ -68,17 +69,21 @@ def train_model(model, train_loader, valid_loader, criterion, dice, optimizer, n
 
         for inputs, labels in train_loader:
             inputs = inputs.to(device)
-            labels = labels.to(device).long()
+            labels = labels.to(device).float()
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, labels) + dice(outputs, labels)
-            _, predictions = torch.max(outputs, 1)
+            loss = binary_xloss(outputs[:,0,:,:], labels)# + dice(outputs, labels)
+            otp = outputs.cpu().detach()
+            predictions = np.ones_like(otp)
+            predictions[otp <= 0.5] = 0
+            predictions[otp > 0.5] = 1
+            #_, predictions = torch.max(outputs, 1)
             #print(predictions)
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item() * inputs.size(0)
-            predictions, labels = np.array(predictions.cpu()).reshape(-1)==1, np.array(labels.cpu()).reshape(-1)==1
+            predictions, labels = np.array(predictions).reshape(-1)==1, np.array(labels.cpu()).reshape(-1)==1
             
             cell_in = np.sum(predictions * labels)
             cell_un = np.sum(predictions + labels)
@@ -101,11 +106,15 @@ def train_model(model, train_loader, valid_loader, criterion, dice, optimizer, n
                 inputs = inputs.to(device)
                 labels = labels.to(device).long()
                 outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                _, predictions = torch.max(outputs, 1)
+                loss = 0
+                otp = outputs.cpu().detach()
+                predictions = np.ones_like(otp)
+                predictions[otp <= 0.5] = 0
+                predictions[otp > 0.5] = 1
+                #_, predictions = torch.max(outputs, 1)
 
-                total_loss += loss.item() * inputs.size(0)
-                predictions, labels = np.array(predictions.cpu()).reshape(-1)==1, np.array(labels.cpu()).reshape(-1)==1
+                total_loss += 0 * inputs.size(0)
+                predictions, labels = np.array(predictions).reshape(-1)==1, np.array(labels.cpu()).reshape(-1)==1
             
                 cell_in = np.sum(predictions * labels)
                 cell_un = np.sum(predictions + labels)
@@ -132,56 +141,19 @@ def train_model(model, train_loader, valid_loader, criterion, dice, optimizer, n
             torch.save(best_model.state_dict(), 'best_model.pt')
 
 
-class SoftDiceLoss(nn.Module):
-    def __init__(self, weight=None, size_average=True):
-        super(SoftDiceLoss, self).__init__()
- 
-    def forward(self, logits, targets):
-        num = targets.size(0)
-        smooth = 1
-        
-        probs = torch.sigmoid(logits)
-        probs = probs[:, 1, :, :]
-        m1 = probs.view(num, -1)
-        m2 = targets.float().view(num, -1)
-        intersection = (m1 * m2)
- 
-        score = 2. * (intersection.sum(1) + smooth) / (m1.sum(1) + m2.sum(1) + smooth)
-        score = 1 - score.sum() / num
-        return score
-
-
-class BCEFocalLoss(torch.nn.Module):
-    def __init__(self, gamma=2, alpha=0.4, reduction='elementwise_mean'):
-        super().__init__()
-        self.gamma = gamma
-        self.alpha = alpha
-        self.reduction = reduction
- 
-    def forward(self, _input, target):
-        pt = torch.sigmoid(_input)[:, 1, :, :].reshape(-1)
-        tg = target.reshape(-1).float()
-        alpha, gamma = self.alpha, self.gamma
-        #print(pt.shape,target.shape)
-        loss = - alpha * (1 - pt) ** gamma * tg * torch.log(pt+1e-10) - \
-               (1 - alpha) * pt ** gamma * (1 - tg) * torch.log(1 - pt + 1e-10)
-        if self.reduction == 'elementwise_mean':
-            loss = torch.mean(loss)
-        elif self.reduction == 'sum':
-            loss = torch.sum(loss)
-        return loss
-
+def symmetric_lovasz(outputs, targets):
+        return (lovasz_hinge(outputs, targets) + lovasz_hinge(-outputs, 1 - targets)) / 2
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3,4"
 
     ## about training
     num_epochs = 100
     lr = 0.01
 
     ## model initialization
-    model = models2.U_Net(1, 2)
+    model = nn.DataParallel(models2.U_Net(1, 1))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
@@ -193,7 +165,8 @@ if __name__ == '__main__':
 
     ## loss function
     #criterion = nn.CrossEntropyLoss()
-    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1, 1.5]).to(device))
+    #criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1, 1.5]).to(device))
+    criterion = nn.BCEWithLogitsLoss()
     #criterion = BCEFocalLoss()
     dice = SoftDiceLoss()
     train_model(model,train_loader, valid_loader, criterion, dice, optimizer, num_epochs=num_epochs)

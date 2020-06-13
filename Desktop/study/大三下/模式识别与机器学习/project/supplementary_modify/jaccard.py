@@ -67,17 +67,17 @@ def get_all_area(mask):
                 areas[mask[i][j]].append((i,j))
     return areas
 
-def AOPCN(pred_areas, gt_areas):
+def AOGCN(gt_areas, pred_areas):
     jac = {}
-    for key_p in pred_areas.keys():
-        for key_g in gt_areas.keys():
+    for key_g in gt_areas.keys():
+        for key_p in pred_areas.keys():
             area_p, area_g = pred_areas[key_p], gt_areas[key_g]
             if Intersection(area_p, area_g) > 0.5 * len(area_g):
-                jac[key_p] = Jaccard(area_g, area_p)
-                gt_areas.pop(key_g)
+                jac[key_g] = Jaccard(area_g, area_p)
+                pred_areas.pop(key_p)
                 break
-        if key_p not in jac.keys():
-            jac[key_p] = 0
+        if key_g not in jac.keys():
+            jac[key_g] = 0
     return jac
 
 
